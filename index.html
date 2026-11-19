@@ -1,0 +1,457 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Zen Pulse - Édition Collection</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: var(--bg-color, #0f172a);
+            color: #f8fafc;
+            font-family: system-ui, -apple-system, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            overflow: hidden;
+            user-select: none;
+            transition: background-color 0.5s ease;
+        }
+
+        h1 {
+            font-weight: 300;
+            letter-spacing: 2px;
+            margin-bottom: 2px;
+            font-size: 1.4rem;
+            color: #38bdf8;
+        }
+
+        #info-board {
+            font-size: 0.9rem;
+            color: #94a3b8;
+            margin-bottom: 12px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        #rewards-bar {
+            font-size: 0.8rem;
+            color: #fbbf24;
+            margin-bottom: 15px;
+            height: 20px;
+        }
+
+        canvas {
+            background-color: var(--canvas-color, #1e293b);
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+            transition: background-color 0.5s ease;
+        }
+
+        .instructions {
+            margin-top: 15px;
+            font-size: 0.85rem;
+            color: #64748b;
+            text-align: center;
+        }
+
+        #theme-selector {
+            margin-top: 10px;
+            display: flex;
+            gap: 8px;
+        }
+
+        .theme-btn {
+            background: #334155;
+            border: none;
+            color: #cbd5e1;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            cursor: pointer;
+        }
+
+        .theme-btn.active {
+            background: #38bdf8;
+            color: #0f172a;
+            font-weight: 600;
+        }
+    </style>
+</head>
+<body>
+
+    <h1>ZEN PULSE</h1>
+    <div id="info-board">
+        <span>Niveau : <strong id="level" style="color: #f8fafc;">1</strong></span>
+        <span>Série : <strong id="streak" style="color: #34d399;">0</strong> / 5</span>
+        <span>Shields : <strong id="shields" style="color: #fbbf24;">0</strong> 🛡️</span>
+        <span>Meilleur : <strong id="best" style="color: #f8fafc;">0</strong></span>
+    </div>
+
+    <div id="rewards-bar">Atteins le niveau 3 pour débloquer ton premier thème et son !</div>
+
+    <canvas id="gameCanvas" width="400" height="400"></canvas>
+
+    <div id="theme-selector"></div>
+
+    <div class="instructions">
+        Clique ou appuie sur Espace lorsque la forme se superpose.
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+
+        const levelEl = document.getElementById('level');
+        const streakEl = document.getElementById('streak');
+        const shieldsEl = document.getElementById('shields');
+        const bestEl = document.getElementById('best');
+        const rewardsBarEl = document.getElementById('rewards-bar');
+        const themeSelectorEl = document.getElementById('theme-selector');
+
+        let centerX = canvas.width / 2;
+        let centerY = canvas.height / 2;
+
+        let targetRadius = 60;
+        let currentRadius = 160;
+        let speed = 1.4;
+        let streak = 0;
+        let bestStreak = 0;
+        let level = 1;
+        let shields = 0;
+        let maxUnlockedLevel = 1;
+
+        let gameState = 'playing'; 
+        let feedbackTimer = 0;
+        let feedbackText = '';
+        let feedbackColor = '';
+        let particles = [];
+
+        // Système de Thèmes et Sons déblocables
+        const themes = [
+            { id: 0, name: "Nuit Polaire", unlockLevel: 1, bg: "#0f172a", canvasBg: "#1e293b", soundType: "sine", freqBase: 523.25 },
+            { id: 1, name: "Forêt Sauge", unlockLevel: 3, bg: "#064e3b", canvasBg: "#065f46", soundType: "triangle", freqBase: 440 },
+            { id: 2, name: "Coucher de Soleil", unlockLevel: 6, bg: "#7c2d12", canvasBg: "#9a3412", soundType: "sawtooth", freqBase: 587.33 }
+        ];
+
+        let activeThemeId = 0;
+
+        const levelsConfig = [
+            { name: "Cercle Doux", shape: "circle", color: "#38bdf8" },
+            { name: "Losange Harmonie", shape: "diamond", color: "#a78bfa" },
+            { name: "Hexagone Zen", shape: "hexagon", color: "#34d399" },
+            { name: "Étoile Filante", shape: "star", color: "#fbbf24" }
+        ];
+
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+        function playSound(freqOffset = 0, type = 'sine', duration = 0.15) {
+            if (audioCtx.state === 'suspended') { audioCtx.resume(); }
+            const currentTheme = themes[activeThemeId];
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            
+            osc.type = currentTheme.soundType;
+            osc.frequency.value = currentTheme.freqBase + freqOffset;
+            
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
+            
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.start();
+            osc.stop(audioCtx.currentTime + duration);
+        }
+
+        function createParticles(x, y, color) {
+            for (let i = 0; i < 12; i++) {
+                const angle = Math.random() * Math.PI * 2;
+                const speedP = 1 + Math.random() * 3;
+                particles.push({
+                    x: x, y: y,
+                    vx: Math.cos(angle) * speedP,
+                    vy: Math.sin(angle) * speedP,
+                    alpha: 1,
+                    color: color,
+                    size: 3 + Math.random() * 3
+                });
+            }
+        }
+
+        function updateThemeUI() {
+            document.documentElement.style.setProperty('--bg-color', themes[activeThemeId].bg);
+            document.documentElement.style.setProperty('--canvas-color', themes[activeThemeId].canvasBg);
+            
+            themeSelectorEl.innerHTML = '';
+            themes.forEach(t => {
+                if (maxUnlockedLevel >= t.unlockLevel) {
+                    const btn = document.createElement('button');
+                    btn.className = `theme-btn ${activeThemeId === t.id ? 'active' : ''}`;
+                    btn.textContent = t.name;
+                    btn.onclick = () => {
+                        activeThemeId = t.id;
+                        updateThemeUI();
+                    };
+                    themeSelectorEl.appendChild(btn);
+                }
+            });
+        }
+
+        function triggerAction() {
+            if (gameState === 'fail') {
+                gameState = 'playing';
+                currentRadius = 160;
+                streak = 0;
+                level = 1;
+                speed = 1.4;
+                updateUI();
+                return;
+            }
+
+            if (gameState === 'levelUp') {
+                gameState = 'playing';
+                currentRadius = 160;
+                return;
+            }
+
+            let diff = Math.abs(currentRadius - targetRadius);
+
+            if (diff < 7) {
+                streak++;
+                playSound(130);
+                createParticles(centerX, centerY, levelsConfig[(level - 1) % levelsConfig.length].color);
+                showFeedback("PARFAIT !", "#34d399");
+
+                if (streak >= 5) {
+                    level++;
+                    streak = 0;
+                    speed += 0.4;
+                    if (level > maxUnlockedLevel) maxUnlockedLevel = level;
+
+                    // Récompenses de palier
+                    let rewardMsg = `NIVEAU ${level} !`;
+                    if (level === 3) {
+                        shields++;
+                        rewardMsg = "NIVEAU 3 ! Thème Forêt + 1 Bouclier 🛡️";
+                    } else if (level === 6) {
+                        shields++;
+                        rewardMsg = "NIVEAU 6 ! Thème Sunset + 1 Bouclier 🛡️";
+                    } else if (level % 3 === 0) {
+                        shields++;
+                        rewardMsg = `NIVEAU ${level} ! +1 Bouclier Zen 🛡️`;
+                    }
+
+                    updateThemeUI();
+                    gameState = 'levelUp';
+                    showFeedback(rewardMsg, "#38bdf8");
+                }
+            } else if (diff < 16) {
+                streak++;
+                playSound(50);
+                showFeedback("BIEN", "#60a5fa");
+                if (streak >= 5) {
+                    level++;
+                    streak = 0;
+                    speed += 0.4;
+                    if (level > maxUnlockedLevel) maxUnlockedLevel = level;
+                    
+                    if (level === 3 || level === 6 || level % 3 === 0) {
+                        shields++;
+                        rewardsBarEl.textContent = `Récompense : Bouclier Zen gagné !`;
+                    }
+
+                    updateThemeUI();
+                    gameState = 'levelUp';
+                    showFeedback(`NIVEAU ${level} !`, "#38bdf8");
+                }
+            } else {
+                // Gestion du Bouclier Zen
+                if (shields > 0) {
+                    shields--;
+                    playSound(-100, 'triangle', 0.4);
+                    showFeedback("BOUCLIER ACTIF !", "#fbbf24");
+                    currentRadius = 160; // Sauvé ! On continue
+                } else {
+                    playSound(-150, 'triangle', 0.4);
+                    showFeedback("OUBLI...", "#f87171");
+                    let totalScore = (level - 1) * 5 + streak;
+                    if (totalScore > bestStreak) bestStreak = totalScore;
+                    streak = 0;
+                    level = 1;
+                    speed = 1.4;
+                    gameState = 'fail';
+                }
+            }
+
+            let totalScore = (level - 1) * 5 + streak;
+            if (totalScore > bestStreak) bestStreak = totalScore;
+            updateUI();
+
+            if (gameState === 'playing') {
+                currentRadius = 170;
+            }
+        }
+
+        function updateUI() {
+            levelEl.textContent = level;
+            streakEl.textContent = streak;
+            shieldsEl.textContent = shields;
+            bestEl.textContent = bestStreak;
+        }
+
+        function showFeedback(text, color) {
+            feedbackText = text;
+            feedbackColor = color;
+            feedbackTimer = 45;
+        }
+
+        canvas.addEventListener('click', triggerAction);
+        window.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                triggerAction();
+            }
+        });
+
+        fnShape = function(ctx, x, y, radius, type) {
+            ctx.beginPath();
+            if (type === 'circle') {
+                ctx.arc(x, y, radius, 0, Math.PI * 2);
+            } else if (type === 'diamond') {
+                ctx.moveTo(x, y - radius);
+                ctx.lineTo(x + radius, y);
+                ctx.lineTo(x, y + radius);
+                ctx.lineTo(x - radius, y);
+                ctx.closePath();
+            } else if (type === 'hexagon') {
+                for (let i = 0; i < 6; i++) {
+                    let angle = (i * Math.PI) / 3;
+                    let hx = x + radius * Math.cos(angle);
+                    let hy = y + radius * Math.sin(angle);
+                    if (i === 0) ctx.moveTo(hx, hy);
+                    else ctx.lineTo(hx, hy);
+                }
+                ctx.closePath();
+            } else if (type === 'star') {
+                let spikes = 5;
+                let rot = (Math.PI / 2) * 3;
+                let step = Math.PI / spikes;
+                let outerRadius = radius;
+                let innerRadius = radius / 2;
+
+                for (let i = 0; i < spikes; i++) {
+                    let sx = x + Math.cos(rot) * outerRadius;
+                    let sy = y + Math.sin(rot) * outerRadius;
+                    ctx.lineTo(sx, sy);
+                    rot += step;
+                    sx = x + Math.cos(rot) * innerRadius;
+                    sy = y + Math.sin(rot) * innerRadius;
+                    ctx.lineTo(sx, sy);
+                    rot += step;
+                }
+                ctx.closePath();
+            }
+        };
+
+        function update() {
+            if (gameState === 'playing') {
+                currentRadius -= speed;
+                if (currentRadius < 15) {
+                    if (shields > 0) {
+                        shields--;
+                        playSound(-100, 'triangle', 0.4);
+                        showFeedback("BOUCLIER ACTIF !", "#fbbf24");
+                        currentRadius = 160;
+                    } else {
+                        playSound(-150, 'triangle', 0.4);
+                        showFeedback("TROP TARD", "#f87171");
+                        let totalScore = (level - 1) * 5 + streak;
+                        if (totalScore > bestStreak) bestStreak = totalScore;
+                        streak = 0;
+                        level = 1;
+                        speed = 1.4;
+                        updateUI();
+                        gameState = 'fail';
+                    }
+                }
+            }
+
+            if (feedbackTimer > 0) feedbackTimer--;
+
+            particles.forEach((p, index) => {
+                p.x += p.vx;
+                p.y += p.vy;
+                p.alpha -= 0.03;
+                if (p.alpha <= 0) particles.splice(index, 1);
+            });
+        }
+
+        function draw() {
+            ctx.fillStyle = themes[activeThemeId].canvasBg;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            let currentLevelConfig = levelsConfig[(level - 1) % levelsConfig.length];
+
+            fnShape(ctx, centerX, centerY, targetRadius, currentLevelConfig.shape);
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.15)';
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, 12, 0, Math.PI * 2);
+            ctx.fillStyle = currentLevelConfig.color;
+            ctx.fill();
+
+            if (gameState === 'playing') {
+                fnShape(ctx, centerX, centerY, currentRadius, currentLevelConfig.shape);
+                ctx.strokeStyle = currentLevelConfig.color;
+                ctx.lineWidth = 3;
+                ctx.stroke();
+            }
+
+            particles.forEach(p => {
+                ctx.save();
+                ctx.globalAlign = p.alpha;
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            });
+
+            if (feedbackTimer > 0) {
+                ctx.font = 'bold 18px system-ui';
+                ctx.fillStyle = feedbackColor;
+                ctx.textAlign = 'center';
+                ctx.fillText(feedbackText, centerX, centerY - 90);
+            }
+
+            if (gameState === 'fail') {
+                ctx.font = '14px system-ui';
+                ctx.fillStyle = '#94a3b8';
+                ctx.textAlign = 'center';
+                ctx.fillText("Clique pour recommencer", centerX, centerY + 90);
+            } else if (gameState === 'levelUp') {
+                ctx.font = '14px system-ui';
+                ctx.fillStyle = '#38bdf8';
+                ctx.textAlign = 'center';
+                ctx.fillText("Clique pour le niveau suivant", centerX, centerY + 90);
+            }
+        }
+
+        function loop() {
+            update();
+            draw();
+            requestAnimationFrame(loop);
+        }
+
+        updateThemeUI();
+        loop();
+    </script>
+</body>
+</html>
