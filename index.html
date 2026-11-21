@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="fr">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zen Pulse - Édition Collection</title>
+    <title>Zen Pulse - Collection Edition</title>
     <style>
         body {
             margin: 0;
@@ -87,20 +87,20 @@
 
     <h1>ZEN PULSE</h1>
     <div id="info-board">
-        <span>Niveau : <strong id="level" style="color: #f8fafc;">1</strong></span>
-        <span>Série : <strong id="streak" style="color: #34d399;">0</strong> / 5</span>
-        <span>Shields : <strong id="shields" style="color: #fbbf24;">0</strong> 🛡️</span>
-        <span>Meilleur : <strong id="best" style="color: #f8fafc;">0</strong></span>
+        <span>Level: <strong id="level" style="color: #f8fafc;">1</strong></span>
+        <span>Streak: <strong id="streak" style="color: #34d399;">0</strong> / 5</span>
+        <span>Shields: <strong id="shields" style="color: #fbbf24;">0</strong> 🛡️</span>
+        <span>Best: <strong id="best" style="color: #f8fafc;">0</strong></span>
     </div>
 
-    <div id="rewards-bar">Atteins le niveau 3 pour débloquer ton premier thème et son !</div>
+    <div id="rewards-bar">Reach Level 3 to unlock your first theme and sound!</div>
 
     <canvas id="gameCanvas" width="400" height="400"></canvas>
 
     <div id="theme-selector"></div>
 
     <div class="instructions">
-        Clique ou appuie sur Espace lorsque la forme se superpose.
+        Click or press Space when the shape aligns.
     </div>
 
     <script>
@@ -126,26 +126,26 @@
         let shields = 0;
         let maxUnlockedLevel = 1;
 
-        let gameState = 'playing'; 
+        let gameState = 'playing';
         let feedbackTimer = 0;
         let feedbackText = '';
         let feedbackColor = '';
         let particles = [];
 
-        // Système de Thèmes et Sons déblocables
+        // Unlockable Themes and Sounds
         const themes = [
-            { id: 0, name: "Nuit Polaire", unlockLevel: 1, bg: "#0f172a", canvasBg: "#1e293b", soundType: "sine", freqBase: 523.25 },
-            { id: 1, name: "Forêt Sauge", unlockLevel: 3, bg: "#064e3b", canvasBg: "#065f46", soundType: "triangle", freqBase: 440 },
-            { id: 2, name: "Coucher de Soleil", unlockLevel: 6, bg: "#7c2d12", canvasBg: "#9a3412", soundType: "sawtooth", freqBase: 587.33 }
+            { id: 0, name: "Polar Night", unlockLevel: 1, bg: "#0f172a", canvasBg: "#1e293b", soundType: "sine", freqBase: 523.25 },
+            { id: 1, name: "Sage Forest", unlockLevel: 3, bg: "#064e3b", canvasBg: "#065f46", soundType: "triangle", freqBase: 440 },
+            { id: 2, name: "Sunset Glow", unlockLevel: 6, bg: "#7c2d12", canvasBg: "#9a3412", soundType: "sawtooth", freqBase: 587.33 }
         ];
 
         let activeThemeId = 0;
 
         const levelsConfig = [
-            { name: "Cercle Doux", shape: "circle", color: "#38bdf8" },
-            { name: "Losange Harmonie", shape: "diamond", color: "#a78bfa" },
-            { name: "Hexagone Zen", shape: "hexagon", color: "#34d399" },
-            { name: "Étoile Filante", shape: "star", color: "#fbbf24" }
+            { name: "Soft Circle", shape: "circle", color: "#38bdf8" },
+            { name: "Harmony Diamond", shape: "diamond", color: "#a78bfa" },
+            { name: "Zen Hexagon", shape: "hexagon", color: "#34d399" },
+            { name: "Shooting Star", shape: "star", color: "#fbbf24" }
         ];
 
         const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -155,13 +155,13 @@
             const currentTheme = themes[activeThemeId];
             const osc = audioCtx.createOscillator();
             const gain = audioCtx.createGain();
-            
+
             osc.type = currentTheme.soundType;
             osc.frequency.value = currentTheme.freqBase + freqOffset;
-            
+
             gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
             gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-            
+
             osc.connect(gain);
             gain.connect(audioCtx.destination);
             osc.start();
@@ -186,7 +186,7 @@
         function updateThemeUI() {
             document.documentElement.style.setProperty('--bg-color', themes[activeThemeId].bg);
             document.documentElement.style.setProperty('--canvas-color', themes[activeThemeId].canvasBg);
-            
+
             themeSelectorEl.innerHTML = '';
             themes.forEach(t => {
                 if (maxUnlockedLevel >= t.unlockLevel) {
@@ -225,7 +225,7 @@
                 streak++;
                 playSound(130);
                 createParticles(centerX, centerY, levelsConfig[(level - 1) % levelsConfig.length].color);
-                showFeedback("PARFAIT !", "#34d399");
+                showFeedback("PERFECT!", "#34d399");
 
                 if (streak >= 5) {
                     level++;
@@ -233,17 +233,16 @@
                     speed += 0.4;
                     if (level > maxUnlockedLevel) maxUnlockedLevel = level;
 
-                    // Récompenses de palier
-                    let rewardMsg = `NIVEAU ${level} !`;
+                    let rewardMsg = `LEVEL ${level}!`;
                     if (level === 3) {
                         shields++;
-                        rewardMsg = "NIVEAU 3 ! Thème Forêt + 1 Bouclier 🛡️";
+                        rewardMsg = "LEVEL 3! Forest Theme + 1 Shield 🛡️";
                     } else if (level === 6) {
                         shields++;
-                        rewardMsg = "NIVEAU 6 ! Thème Sunset + 1 Bouclier 🛡️";
+                        rewardMsg = "LEVEL 6! Sunset Theme + 1 Shield 🛡️";
                     } else if (level % 3 === 0) {
                         shields++;
-                        rewardMsg = `NIVEAU ${level} ! +1 Bouclier Zen 🛡️`;
+                        rewardMsg = `LEVEL ${level}! +1 Zen Shield 🛡️`;
                     }
 
                     updateThemeUI();
@@ -253,32 +252,31 @@
             } else if (diff < 16) {
                 streak++;
                 playSound(50);
-                showFeedback("BIEN", "#60a5fa");
+                showFeedback("GOOD", "#60a5fa");
                 if (streak >= 5) {
                     level++;
                     streak = 0;
                     speed += 0.4;
                     if (level > maxUnlockedLevel) maxUnlockedLevel = level;
-                    
+
                     if (level === 3 || level === 6 || level % 3 === 0) {
                         shields++;
-                        rewardsBarEl.textContent = `Récompense : Bouclier Zen gagné !`;
+                        rewardsBarEl.textContent = "Reward: Zen Shield earned!";
                     }
 
                     updateThemeUI();
                     gameState = 'levelUp';
-                    showFeedback(`NIVEAU ${level} !`, "#38bdf8");
+                    showFeedback(`LEVEL ${level}!`, "#38bdf8");
                 }
             } else {
-                // Gestion du Bouclier Zen
                 if (shields > 0) {
                     shields--;
                     playSound(-100, 'triangle', 0.4);
-                    showFeedback("BOUCLIER ACTIF !", "#fbbf24");
-                    currentRadius = 160; // Sauvé ! On continue
+                    showFeedback("SHIELD ACTIVE!", "#fbbf24");
+                    currentRadius = 160;
                 } else {
                     playSound(-150, 'triangle', 0.4);
-                    showFeedback("OUBLI...", "#f87171");
+                    showFeedback("MISSED...", "#f87171");
                     let totalScore = (level - 1) * 5 + streak;
                     if (totalScore > bestStreak) bestStreak = totalScore;
                     streak = 0;
@@ -318,7 +316,7 @@
             }
         });
 
-        fnShape = function(ctx, x, y, radius, type) {
+        function fnShape(ctx, x, y, radius, type) {
             ctx.beginPath();
             if (type === 'circle') {
                 ctx.arc(x, y, radius, 0, Math.PI * 2);
@@ -356,7 +354,7 @@
                 }
                 ctx.closePath();
             }
-        };
+        }
 
         function update() {
             if (gameState === 'playing') {
@@ -365,11 +363,11 @@
                     if (shields > 0) {
                         shields--;
                         playSound(-100, 'triangle', 0.4);
-                        showFeedback("BOUCLIER ACTIF !", "#fbbf24");
+                        showFeedback("SHIELD ACTIVE!", "#fbbf24");
                         currentRadius = 160;
                     } else {
                         playSound(-150, 'triangle', 0.4);
-                        showFeedback("TROP TARD", "#f87171");
+                        showFeedback("TOO LATE", "#f87171");
                         let totalScore = (level - 1) * 5 + streak;
                         if (totalScore > bestStreak) bestStreak = totalScore;
                         streak = 0;
@@ -416,7 +414,7 @@
 
             particles.forEach(p => {
                 ctx.save();
-                ctx.globalAlign = p.alpha;
+                ctx.globalAlpha = Math.max(0, p.alpha);
                 ctx.fillStyle = p.color;
                 ctx.beginPath();
                 ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
@@ -435,12 +433,12 @@
                 ctx.font = '14px system-ui';
                 ctx.fillStyle = '#94a3b8';
                 ctx.textAlign = 'center';
-                ctx.fillText("Clique pour recommencer", centerX, centerY + 90);
+                ctx.fillText("Click to restart", centerX, centerY + 90);
             } else if (gameState === 'levelUp') {
                 ctx.font = '14px system-ui';
                 ctx.fillStyle = '#38bdf8';
                 ctx.textAlign = 'center';
-                ctx.fillText("Clique pour le niveau suivant", centerX, centerY + 90);
+                ctx.fillText("Click for next level", centerX, centerY + 90);
             }
         }
 
